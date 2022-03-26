@@ -3,7 +3,7 @@ title: "Rust のアプリで --mount=type=cache + multi-stage build してハマ
 emoji: "📦"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["Docker", "rust"]
-published: false
+published: true
 ---
 
 # 要約
