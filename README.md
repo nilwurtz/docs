@@ -1,3 +1,3 @@
 # Docs
 
-Docs repository used primarily for deploying to Zenn.
+Docs repository used mainly for deploying to Zenn.
