@@ -1,0 +1,23 @@
+{
+  "name": "docs",
+  "version": "1.0.0",
+  "description": "Docs repository used primarily for deploying to Zenn.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ragnar1904/docs.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ragnar1904/docs/issues"
+  },
+  "homepage": "https://github.com/ragnar1904/docs#readme",
+  "dependencies": {
+    "zenn-cli": "^0.1.108"
+  }
+}
