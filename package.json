@@ -8,16 +8,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ragnar1904/docs.git"
+    "url": "git+https://github.com/nilwurtz/docs.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/ragnar1904/docs/issues"
+    "url": "https://github.com/nilwurtz/docs/issues"
   },
-  "homepage": "https://github.com/ragnar1904/docs#readme",
+  "homepage": "https://github.com/nilwurtz/docs#readme",
   "dependencies": {
-    "zenn-cli": "^0.1.108"
+    "zenn-cli": "^0.1.131"
   }
 }
