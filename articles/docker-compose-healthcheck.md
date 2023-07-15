@@ -3,7 +3,7 @@ title: "docker-composeだけで全てのコンテナ起動を待機する"
 emoji: "📦"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["docker", "dockercompose"]
-published: true
+published: false
 ---
 
 # 概要
