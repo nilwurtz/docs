@@ -3,7 +3,7 @@ title: "Selenideを利用するときに心がけること"
 emoji: "💬"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["Selenide", "E2E", "Test"]
-published: false
+published: True
 ---
 
 # 概要
