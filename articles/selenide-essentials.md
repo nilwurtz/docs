@@ -8,7 +8,7 @@ published: True
 
 # 概要
 
-Testライブラリの[Selenide](https://selenide.org/)はUIテスト用の協力なライブラリで、業務でもよく利用している。
+Testライブラリの[Selenide](https://selenide.org/)はUIテスト用の強力なライブラリで、業務でもよく利用している。
 
 その機能を利用し、安定するテストを作るために 気をつけるべきこと がいくつかあるのでまとめておく。
 
