@@ -3,7 +3,7 @@ title: "Wiremock の GraphQL Extension を作って公開して、Wiremock Organ
 emoji: "✨"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["wiremock", "e2e", "graphql"]
-published: false
+published: true
 ---
 
 # 概要
