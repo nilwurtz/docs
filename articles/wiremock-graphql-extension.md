@@ -8,85 +8,91 @@ published: true
 
 # 概要
 
-E2EなどでAPIをMockするツールとして、[Wiremock](https://wiremock.org/)がある。
-WiremockはUrl、QueryParam、RequestBodyなどのMatchingが充実しており、普通のREST APIのMockには十分使える。
+E2E などで API を Mock するツールとして、[Wiremock](https://wiremock.org/)がある。
+Wiremock は Url、QueryParam、RequestBody などの Matching が充実しており、普通の REST API の Mock には十分使える。
 
-ただ、GraphQLのMockを作成する場合、WiremockのMatchingの機能だけではGraphQLのQueryのMatchingがつらいという問題がある。
-今回はその問題を解決するために、WiremockのGraphQL向けExtensionを作成し、Wiremock Organizationに仲間入りしたのでその紹介。
-
+ただ、GraphQL の Mock を作成する場合、Wiremock の Matching の機能だけでは GraphQL の Query の Matching がつらいという問題がある。
+今回はその問題を解決するために、Wiremock の GraphQL 向け Extension を作成し、Wiremock Organization に仲間入りしたのでその紹介。
 
 つくった --> [Wiremock GraphQL Extension](https://github.com/wiremock/wiremock-graphql-extension)
 
-
 ## GraphQL の Query の Matching がつらい
-業務の中で、GraphQLの外部APIを利用することになり、これもWiremockでMockしテストを記述していた。
-GraphQLのQueryは、HTTPのPOSTで送信するので、WiremockのRequestBodyのMatchingを使ってMatchingすることができるので、最初はあまり問題ないように思えていたが、次第につらみが出てきた。
 
-以下のようなQueryに対して、Mockを作成するとする。
+業務の中で、GraphQL の外部 API を利用することになり、これも Wiremock で Mock しテストを記述していた。
+GraphQL の Query は、HTTP の POST で送信するので、Wiremock の RequestBody の Matching を使って Matching することができるので、最初はあまり問題ないように思えていたが、次第につらみが出てきた。
+
+以下のような Query に対して、Mock を作成するとする。
+
 ```graphql
-query { hero { name } }
-```
-
-これをWiremockのRequestBodyのMatchingで記述すると、以下のようになる。
-(jsonPathのMatchingなども利用できる)
-```json
-{
-    "request": {
-        "method": "POST",
-        "url": "/graphql",
-        "bodyPatterns": [
-            {
-                "equalToJson": "{\"query\":\"query { hero { name } }\"}"
-            }
-        ]
-    },
-    "response": {
-        "status": 200,
-        "jsonBody": {
-            "data": {
-                "hero": {
-                    "name": "Luke Skywalker"
-                }
-            }
-        }
-    }
+query {
+  hero {
+    name
+  }
 }
 ```
 
-このように、GraphQLのQueryをMatchingするために、Queryの文字列をそのまま一致させる必要がある。
-そのため、スペース一つ、改行一つでも違うと、Matchingに失敗してしまうことになり、これにずっと苦しんでいた。
+これを Wiremock の RequestBody の Matching で記述すると、以下のようになる。
+(jsonPath の Matching なども利用できる)
 
 ```json
 {
-    "request": {
-        "method": "POST",
-        "url": "/graphql",
-        "bodyPatterns": [
-            {
-                // スペースが一つ多いだけで、Matchingしなくなってしまう
-                "equalToJson": "{\"query\":\"query { hero {  name } }\"}"
-            }
-        ]
-    },
-    "response": {
-        "status": 200,
-        "jsonBody": {
-            "data": {
-                "hero": {
-                    "name": "Luke Skywalker"
-                }
-            }
+  "request": {
+    "method": "POST",
+    "url": "/graphql",
+    "bodyPatterns": [
+      {
+        "equalToJson": "{\"query\":\"query { hero { name } }\"}"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "data": {
+        "hero": {
+          "name": "Luke Skywalker"
         }
+      }
     }
+  }
 }
 ```
 
-## WiremockのExtensionを作成した
+このように、GraphQL の Query を Matching するために、Query の文字列をそのまま一致させる必要がある。
+そのため、スペース一つ、改行一つでも違うと、Matching に失敗してしまうことになり、これにずっと苦しんでいた。
 
-Wiremockには[Extension機能](https://wiremock.org/docs/extending-wiremock/)があり、Matchingの機能を拡張することができる。その他にも、ResponseのTransform、RequestのFilteringなどさまざまな機能を拡張することができる。
+```json
+{
+  "request": {
+    "method": "POST",
+    "url": "/graphql",
+    "bodyPatterns": [
+      {
+        // スペースが一つ多いだけで、Matchingしなくなってしまう
+        "equalToJson": "{\"query\":\"query { hero {  name } }\"}"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "data": {
+        "hero": {
+          "name": "Luke Skywalker"
+        }
+      }
+    }
+  }
+}
+```
 
-今回は、GraphQLのQueryをセマンティックに検証し、Matchingする拡張機能を書いた。
-Request Matching Extensionは、`RequestMatcherExtension`を継承して以下のように実装する。([公式](https://wiremock.org/docs/extensibility/custom-matching/))
+## Wiremock の Extension を作成した
+
+Wiremock には[Extension 機能](https://wiremock.org/docs/extending-wiremock/)があり、Matching の機能を拡張することができる。その他にも、Response の Transform、Request の Filtering などさまざまな機能を拡張することができる。
+
+今回は、GraphQL の Query をセマンティックに検証し、Matching する拡張機能を書いた。
+Request Matching Extension は、`RequestMatcherExtension`を継承して以下のように実装する。([公式](https://wiremock.org/docs/extensibility/custom-matching/))
+
 ```kotlin
 import com.github.tomakehurst.wiremock.extension.Parameters
 import com.github.tomakehurst.wiremock.http.Request
@@ -112,63 +118,67 @@ class GraphqlBodyMatcher() : RequestMatcherExtension() {
 このあたりの詳細やクエリ正規化の実装に関して気になる方はソースを見てみてください。
 薄い拡張なのですぐ読めます。
 
-### Matchする例
-以下のクエリは同じクエリとしてMatchingする。
+### Match する例
+
+以下のクエリは同じクエリとして Matching する。
 (空白などの正規化を行った後、セマンティックな検証を行う。)
+
 ```graphql
 {
-    hero {
-        name
-        friends {
-            name
-            age
-        }
+  hero {
+    name
+    friends {
+      name
+      age
     }
+  }
 }
 ```
 
 ```graphql
 {
-    hero {
-        friends {
-            age
-            name
-        }
-        name
+  hero {
+    friends {
+      age
+      name
     }
+    name
+  }
 }
 ```
 
-### Matchしない例
+### Match しない例
+
 ```graphql
 {
-    hero {
-        name
-        friends {
-            name
-            age
-        }
+  hero {
+    name
+    friends {
+      name
+      age
     }
+  }
 }
 ```
 
 ```graphql
 {
-    hero {
-        name
-        friends {
-            name
-        }
+  hero {
+    name
+    friends {
+      name
     }
+  }
 }
 ```
 
 ## 使い方
+
 [README](https://github.com/wiremock/wiremock-graphql-extension/blob/main/README.md)を見てもらうのが良いが、軽く紹介。
 
-注意すべきなのは、WiremockのExtensionはWiremockの起動時に読み込まれるので、Extensionのjarを読み込む必要があること。そのため、Remote Wiremockを利用する場合は、ExtensionのjarをWiremockのDockerイメージに追加し、Stubの設定なども少し変わる。
+注意すべきなのは、Wiremock の Extension は Wiremock の起動時に読み込まれるので、Extension の jar を読み込む必要があること。そのため、Remote Wiremock を利用する場合は、Extension の jar を Wiremock の Docker イメージに追加し、Stub の設定なども少し変わる。
 
-### ソースコード上でWiremockを起動する場合
+### ソースコード上で Wiremock を起動する場合
 
 ```kotlin
 import io.github.nilwurtz.GraphqlBodyMatcher
@@ -182,8 +192,10 @@ WireMock.stubFor(
 )
 ```
 
-### Standalone Wiremockを利用する場合
-dockerなどの場合、jarをマウントする OR COPYしてDockerイメージを作成する必要がある。
+### Standalone Wiremock を利用する場合
+
+docker などの場合、jar をマウントする OR COPY して Docker イメージを作成する必要がある。
+
 ```shell
 docker run -it --rm \
       -p 8080:8080 \
@@ -192,14 +204,16 @@ docker run -it --rm \
       wiremock/wiremock \
       --extensions io.github.nilwurtz.GraphqlBodyMatcher
 ```
+
 ```dockerfile
 FROM wiremock/wiremock:latest
 COPY ./wiremock-graphql-extension-0.6.2-jar-with-dependencies.jar /var/wiremock/extensions/wiremock-graphql-extension-0.6.2-jar-with-dependencies.jar
 CMD ["--extensions", "io.github.nilwurtz.GraphqlBodyMatcher"]
 ```
 
-standaloneの場合、すこしインターフェイスが変わる。
+standalone の場合、すこしインターフェイスが変わる。
 (ここについてはややこしいため統一するなど検討中です。)
+
 ```kotlin
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.client.WireMock.*
@@ -214,17 +228,15 @@ fun registerGraphQLWiremock(json: String) {
 }
 ```
 
-## Wiremock Organizationに仲間入りした
+## Wiremock Organization に仲間入りした
 
-このExtensionを作成したのは業務でGraphQLのMockがつらすぎるというところだったが、ちょうどWiremock側でもGraphQLなど各プロトコルへの対応を強化しているところだったため、メールなどを頂いてWiremock Organizationにリポジトリを移動することになった。
+この Extension を作成したのは業務で GraphQL の Mock がつらすぎるというところだったが、ちょうど Wiremock 側でも GraphQL など各プロトコルへの対応を強化しているところだったため、メールなどを頂いて Wiremock Organization にリポジトリを移動することになった。
 
 **普段業務で使っているソフトウェアに技術者として関われるのはうれしい**
 ![I've joined wiremock organization](/images/wiremock-graphql-extension-01.png)
 
-
-現在ではつぎのメジャーリリースであるWiremock 4でOfficialのGraphQL拡張をリリース予定とのことなので、GraphQLユーザーはぜひチェックしていてほしい。
+Official の GraphQL 拡張も検討中なようなので、GraphQL ユーザーはぜひチェックしていてほしい。
 ([issue](https://github.com/wiremock/ecosystem/issues/13))
 
-
-FB、PR、Issue等もぜひお願いします！
+FB、PR、Issue 等もぜひお願いします！
 [https://github.com/wiremock/wiremock-graphql-extension](https://github.com/wiremock/wiremock-graphql-extension)
