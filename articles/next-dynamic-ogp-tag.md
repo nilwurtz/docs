@@ -3,7 +3,7 @@ title: "Next.jsでCustomApp+動的なOGP設定をしてハマった点"
 emoji: "🐷"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["nextjs", "ogp"]
-published: false
+published: true
 ---
 
 # tl;dr
