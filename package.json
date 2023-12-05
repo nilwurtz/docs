@@ -23,6 +23,9 @@
     "zenn-cli": "^0.1.150"
   },
   "devDependencies": {
-    "textlint": "^13.4.1"
+    "textlint": "^13.4.1",
+    "textlint-filter-rule-comments": "^1.2.2",
+    "textlint-rule-preset-ja-technical-writing": "^9.0.0",
+    "textlint-rule-preset-jtf-style": "^2.3.13"
   }
 }
