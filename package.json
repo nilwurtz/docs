@@ -20,6 +20,9 @@
   },
   "homepage": "https://github.com/nilwurtz/docs#readme",
   "dependencies": {
-    "zenn-cli": "^0.1.146"
+    "zenn-cli": "^0.1.150"
+  },
+  "devDependencies": {
+    "textlint": "^13.4.1"
   }
 }
