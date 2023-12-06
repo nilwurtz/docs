@@ -1,10 +1,11 @@
 {
   "plugins": {},
   "filters": {
-    "comments": true,
+    "comments": true
   },
   "rules": {
     "preset-ja-technical-writing": true,
-    "preset-jtf-style": true
+    "preset-jtf-style": true,
+    "preset-ja-spacing": true
   }
 }
