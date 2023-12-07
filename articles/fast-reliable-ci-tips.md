@@ -7,6 +7,10 @@ published: true
 publication_name: "uzabase"
 ---
 
+本記事はUzabase Advent Calendar 2023の8日目の記事です。
+
+https://qiita.com/advent-calendar/2023/uzabase
+
 # イントロダクション
 
 私の所属する組織ProductTeamではTDDを実践しており、すべての開発においてWeb-E2E、Module-E2E、UnitTestなどを書き実装を進めています。必ずCIを通してデプロイするという環境のため、CIの高速化と安定化は非常に重要な課題です。
