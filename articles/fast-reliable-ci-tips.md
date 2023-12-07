@@ -4,6 +4,7 @@ emoji: "😽"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["CI", "e2e"]
 published: false
+publication_name: "uzabase"
 ---
 
 # イントロダクション
@@ -51,6 +52,25 @@ Selenideなどのテストフレームワークは、テストの安定化に役
 - 集成されたアサーション：要素の状態を検証するためのアサーション（Hrefなど）
 :::
 
+例として、Selenideでの要素の待機について見てみましょう。
+### Good
+```kotlin
+fun assertElement() {
+    // この場合、要素が見つからない場合、タイムアウトまでリトライする
+    $(byText("Login")).shouldBe(visible);
+    // この場合、要素が消えるまで待機する
+    $(".loading").should(disappear);
+}
+```
+### Bad
+別のアサートライブラリなどと組み合わせると、このWait機能が働かないため、不安定なテストとなります。
+```kotlin
+fun assertElement() {
+    // この場合、要素が見つからない場合、タイムアウトまでリトライせずすぐに失敗する
+    assertThat($("ul li")).hasSize(2)
+}
+```
+
 Selenideに関しては、別記事にもしていますので、そちらも参考にしてください。
 [Selenideを利用するときに心がけること](https://zenn.dev/ragnar1904/articles/selenide-essentials)
 
@@ -68,10 +88,33 @@ Web-E2E以外の文脈でも、テストフレームワークの理解はやは�
 
 私の経験では、テストコードをシンプルに保つことは意外と難しいです。
 
-Selenide + Gaugeという構成では、Testを記述したSpecファイルと、実際の処理を記述したStepがあるのですが、Stepはそれぞれただの関数群です。
-そのため、気を抜くとStepにロジックが増えてしまい、テストコードが複雑になってしまいます。
+### Step
 
-<!-- TODO: ここに例をいろいろとかきたい -->
+Selenide + Gaugeという構成では、Testを記述したSpecファイルと、実際の処理を記述したStepがあるのですが、Stepはそれぞれただの関数群です。
+そのため、気を抜くと単一のStepにロジックが増えてしまい、テストコードが複雑になってしまいます。
+
+```kotlin
+  @Step("<data>のリクエストがされている")
+  fun assertRequest(data: String) {
+    val port = Config.get("mock.port")
+    val url = "http://localhost:$port/requests"
+    val expected = this.javaClass.getResource("$data.json").readText()
+    Wiremock(port).verify(
+      WireMock.getRequestedFor(WireMock.urlEqualTo(url))
+        .withRequestBody(WireMock.equalToJson(expected))
+    )
+  }
+```
+
+テストコードであっても抽象化とそれぞれの責務を考え続け、シンプルに保つことは重要です。
+
+```kotlin
+  @Step("<data>のリクエストがされている")
+  fun assertRequest(data: String) {
+    val expected = ResourceLoader.read("$data.json")
+    MockServer.verifyRequest(expected)
+  }
+```
 
 ここ最近では[playtest](https://github.com/uzabase/playtest)という、一般的なGauge Stepを定義したものをライブラリ化して利用しています。例えば、HTTPリクエスト、BodyやStatusなどのアサート、Mockへのリクエスト検証などです。
 Module-E2Eなどであれば、基本的なリクエスト/アサートはplaytestに含まれているため、シンプルなStepの組み合わせだけでE2Eを記述できるようになっています。
@@ -90,12 +133,68 @@ Module-E2Eなどであれば、基本的なリクエスト/アサートはplayte
 ```
 :::
 
+### Fixture
+
+また、Fixtureの扱いも難しいです。
+例えば、違うシナリオのセットアップなのに、同じFixtureをセットアップしていることにより、Fixtureを変えたら別のテストが壊れてしまうということもあります。
+
+```kotlin
+class ExecutionHooks {
+  @BeforeScenario(tags = ["companyA"])
+  fun setup() {
+    Fixture.setup("src/resources/companyA.csv")
+  }
+
+  @BeforeScenario(tags = ["companies"])
+  fun setup() {
+    Fixture.setup("src/resources/companyA.csv") // companyA と同じFixture！
+    Fixture.setup("src/resources/companyB.csv")
+  }
+}
+```
+
+Fixtureのファイルと、テストのシナリオにはひも付きがあるのですが、それをコード上に明示的に表現することは難しいです。
+社内のあるプロジェクトでは、テストのSpecファイルの配置ディレクトリと、Fixtureの配置ディレクトリを対応させ、テストの実行時にFixtureのファイルを自動的に読み込むようにしていました。これはすこしオレオレフレームワーク感が出るのですが、Fixtureとシナリオのひも付きがわかりやすくなり、好感触でした。
+
+```markdown:api/companies/get.spec
+<!-- default という識別子を持つ -->
+## 会社名を取得できる -- default
+- "/companies"にGETリクエストを送る
+...
+```
+
+```kotlin
+class ExecutionHooks {
+    @BeforeScenario()
+    fun setup(context: ExecutionContext) {
+      val scenarioId = ... // context.currentScenario.nameから`default`を取得
+      val specPath = ... // context.currentSpecification.fileNameからspecのパスを取得
+
+      // 現在実行しているSpecのパスと識別子をもとにFixtureをセットアップ
+      Fixture.setup("src/resources/$specPath-$scenarioId")
+    }
+}
+```
+
+
 ## 順番に依存しないテスト
 
 順番に依存するテストが安定性の面で良くないということは、直感的に理解できるはずです。
 単体、直列でテストを実行するときは問題なくても、「ファイル名を変更したら壊れた」「不要なTestを消したら壊れた」ということが起きてしまいます。
 
-<!-- TODO: ここに図 -->
+```mermaid
+graph LR
+A[テストA]-->B[テストB<br>（テストA終わりの状態に依存）]-->C[テストC]
+```
+
+```mermaid
+graph LR
+C[テストC]-->B[テストB<br>（順番が変わって落ちる）]-->A[テストA]
+style B stroke:red
+```
+
+これを早期に発見する1つのオプションとして、テストをランダムに実行することがあります。
+jestなども最近`--randomize`オプションをサポートするようになりました。[https://jestjs.io/docs/cli#--randomize](https://jestjs.io/docs/cli#--randomize)
 
 また、後で触れる話に関連するのですが「CI上でテストを並列実行すると失敗する」などの問題も発生します。
 テストの独立性は、常に意識しておくべきです。
@@ -123,30 +222,54 @@ ElasticSearchの場合、fixtureをindexする際にそのデータがindexに�
 私たちのプロダクトはマイクロサービスで構成されており、それぞれのサービスは独立して開発されています。
 各マイクロサービスの中には、いろんなモジュールから利用されるAPIもあります。あるAPIがいろんな環境で利用されるようになると、そのAPIの変更の影響範囲を把握することが難しくなります。
 
-<!-- TODO: ここに図 -->
 
 そこで、呼び出すモジュール（Consumer）の開発者が、自分のモジュールが利用するAPI（Provider）の仕様を「Contract」として定義します。
 ConsumerはContractを前提にモック化してテストを実施し、ProviderはContractが守られていることを示すテストを実施します。これにより振る舞いを保持しながら双方が独立して開発を進めることができます。
 
-<!-- TODO: ここに図 -->
+```mermaid
+graph LR
+  subgraph Consumer E2E
+    C[Consumer]-->CC[/Contract/]
+  end
+    CC~~~P[Provider]
+```
+
+```mermaid
+graph LR
+    C[Consumer]~~~CC
+  subgraph Provider E2E
+    CC[/Contract/]-->P[Provider]
+  end
+```
+- **ConsumerはProviderに守って欲しいAPIの仕様を定義する**
+  例）`GET /users/1`のレスポンスは、`{"id": 1, "name": "John Doe"}`である。
+- **ConsumerはProviderのモックを利用してテストを実施する**
+  Providerのモックは、Consumerが定義したContractを守るように実装する。
+- **ProviderはConsumerが定義したContractを守っていれば、常にデプロイ可能**
+  Consumerが定義したContractを守るようなテストを実施する。
+  上の例であれば、ProviderのTestの中に`GET /users/1`のレスポンスが`{"id": 1, "name": "John Doe"}`であることを検証するテストを書く。
+
 
 このようなテスト手法を**Consumer Driven Contract** (CDC)と呼びます。
 
 CDCはテストの安定化や高速化を目的としたものではありませんが、モックを利用できることで高速化にも効果があります。
 依存するモジュールのソースのチェックアウトやビルド、デプロイなどを待つ必要がなくなる上、自分が知らないところで起きた修正によってテストが失敗することもありません。
-マイクロサービスにおける開発では、必ず利用したいテスト手法です。
+**マイクロサービスにおける開発では、必ず利用したいテスト手法です。**
 
 :::message
 ProductTeamでは、WiremockへのStubをもとにContractを生成する[play-cdc](https://github.com/uzabase/play-cdc)を利用して、効率的にCDCを行っています。
+<!-- textlint-disable -->
 :::
+<!-- textlint-enable -->
 
 
-# テストの高速化
+# CIの高速化
 
-ここからは具体的にテストの高速化について紹介していきます。
-私の経験上、テストの高速化には以下の2つが効果的です。
+ここからは具体的にCIの高速化について紹介していきます。
+私の経験上、CIの高速化には以下の3つが効果的です。
 - テストの並列実行
-- オーバーヘッドの削減
+- テスト中のボトルネックの解消
+- テスト環境向けビルド時間の短縮（今回はあまり触れません）
 
 ## テストの並列実行
 
@@ -155,7 +278,9 @@ ProductTeamでは、WiremockへのStubをもとにContractを生成する[play-c
 
 :::message alert
 テストを分割して実行する場合、必ずすべてのテストが流れていることを確認しましょう。
+<!-- textlint-disable -->
 :::
+<!-- textlint-enable -->
 
 ### 単一環境におけるテストの並列実行
 
@@ -211,7 +336,9 @@ mvn gauge:execute -Dtags="!ReadOnly"
 :::message
 このとき、Read-onlyのTestのデータセットアップはTest全体が流れる前の一度だけになります。シナリオごとに毎回セットアップはできません。
 一方でWriteが発生するテストのデータセットアップは、テストごとに行う必要があります。
+<!-- textlint-disable -->
 :::
+<!-- textlint-enable -->
 
 #### この手法のメリット
 - **どのCI環境でも比較的簡単に実装できる**
@@ -275,10 +402,12 @@ end
 #### この手法のデメリット
 - **パイプラインおよびテストの設定が複雑**
   パイプライン上でテストの分割をおこなったり、環境それぞれに対してテスト設定を行う必要があります。
+
 - **CI環境に左右される**
   実行する環境によっては、複数のテスト環境を同時に起動できない場合があります。例えば、同一のホスト上で同じ`docker-compose.yaml`を利用してテスト環境を起動する場合などです。
   また、環境を複数分割・複数のテストを同時に実行しようとすると、ネットワーク周りやリソース周りの影響も無視できなくなります。
   実体験として環境を増やしていくにつれ、テスト環境が上手く立ち上がらない、テストがタイムアウトで失敗するなどが頻発し、SREのメンバーと頭を抱えていました。
+
 - **インフラコストがかかる**
   クラウド上の場合、環境を増やすと基本的にはインフラコストが増加します。後述の例では、SPOTインスタンスを利用してコストを抑えています。
 
@@ -324,9 +453,11 @@ class ExecutionHooks {
 ```
 
 CI環境には、k8s上で[Buildkite](https://buildkite.com/)を利用していました。
-Buildkiteはセルフホスト型のCIサービスで、ユーザーは実行環境であるBuildkite Agentを構築し、Buildkiteがパイプラインの各種マネジメントを行ってくれます。k8s上でBuildkite Agentを動かすことも可能で、Agent（＝テスト実行環境）のスケールアウトを簡単に行うことができます。
+Buildkiteはセルフホスト型のCIサービスです。ユーザーは実行環境であるBuildkite Agentを様々なインフラに構築でき、Buildkiteがパイプラインの各種マネジメントを行ってくれます。
+k8s上でBuildkite Agentを動かすことも可能で、Agent（＝テスト実行環境）のスケールアウトを簡単に行うことができます。
 
-<!-- TODO: ここに図 -->
+![Buildkite Hybrid Architecture](/images/fast-reliable-ci-tips-001.png)
+*Buildkite Hybrid Architecture（[公式](https://buildkite.com/docs/pipelines/architecture)より）*
 
 また、Buildkiteはパイプラインの各ステップを容易に並列実行できること、動的にステップを生成しやすいなどの特徴もあります。
 さらにProductTeamでは、dindコンテナをAgentのサイドカーとして動かし、k8sのBuildkite Agent上でDockerを動かすことができるようになっています。Agentを増やせばテスト環境も増やせるという状況でした。
@@ -396,16 +527,14 @@ end
 
 ただ社内でも例が少なく長期的に運用していないこともあり、これからの安定性についてはまだ検証が必要です。
 
-## オーバーヘッドの削減
+## テスト中のボトルネックの解消
 
-手っ取り早く、かつ確実に取れる手法がこれです。
 やることはシンプルで、テストの実行中時間がかかっている部分を特定し、その時間を削減することです。
+特にシナリオごとに行う処理には伸びしろがある場合があります。**テストシナリオの数に比例して時間がかかる**ためです。
 
-### WebDriverセッションオーバーヘッド削減
 ### ログイン処理のSkip
 
-上記のテスト並列実行と同様のイメージです。
-
+ログイン処理は、非同期処理が絡み頻度も高いため、テストの実行時間を大きく伸ばす原因になります。
 特定のシナリオ郡はログアウトせず、ログインまでの共通処理をSkipしてしまうようにし、テストの実行時間を削減します。初回のみログイン処理を行うようにします。
 
 ```mermaid
@@ -418,20 +547,79 @@ B--> C[[ゲスト状態のテスト]]
 end
 ```
 
-また、実行順序での制御も可能です。最初にゲスト状態のテストを実行し、その後にログアウトしないままログイン状態のテストを実行することで、ログイン処理を1回に抑えることができます。もちろん逆でも問題はありません。
-```mermaid
-graph LR
+### データセットアップのSkip
 
-subgraph テスト
-A[[ゲスト状態のテスト]] --> B[ログイン処理]
-B --> C[[ログイン状態のテスト]]
-end
+テストの実行中にデータセットアップを行う場合、無視できない時間がかかる場合もあります。
+前述のElasticSearchの例のようにどうしても時間がかかってしまう場合は、より効果的です。
+
+以下のような流れになります。
+- テストスイートの開始時にデータセットアップ
+  テストスイートの最初に、必要な全てのデータをセットアップします。
+- データの共有
+  同一のテストスイート内の複数のテストケースで、セットアップしたデータを共有します。
+
+
+### WebDriverセッションのオーバーヘッド削減
+
+WebDriverベースのテストフレームワークを利用している場合、テストの実行中にWebDriverのセッションを作成する処理が発生します。テスト環境によってはそのオーバーヘッドが大きくなるため、注意が必要です。
+
+#### 社内での実践例
+
+あるプロジェクトのWeb-E2Eでは、数ページ分のテストケースの割にCI環境でのテストの実行時間が長く、頭を悩ませていました。10ページ分もないE2Eに1時間。流石におかしいと思った私は色々とコードを眺めていました。
+
+ふと目についた以下の1行の変更で、テストの実行時間を**1時間**から**15分**に削減できました。
+
+```kotlin
+    @AfterScenario
+    fun tearDownScenario() {
+-        WebDriverRunner.closeWebDriver()
++        localStorage().clear()
+    }
 ```
 
-ただ、この手法はテストの実行順序に依存しますし、複雑にはなります。
+上記の例では、ログインセッションを破棄するため、毎シナリオ終わりにWebDriverをcloseしていました。つまり、シナリオ1つにつき1回WebDriverのセッションを作成していたのです。これは、ローカルではさほど気になりませんでした（ない方がいいですが）。
+
+しかしCI環境ではk8s上で[SeleniumGrid](https://www.selenium.dev/ja/documentation/grid/)を利用しており、**毎シナリオごとにPodが作成されていたのです。**
+常に注意深く問題を探すことが重要だと感じた出来事でした。
+
+## テスト環境向けビルド時間の短縮
+
+もちろん、テスト環境向けビルド時間の短縮も重要です。
+ビルド時間短縮の詳細に関して今回はあまり触れませんが、基本的にはCacheを利かせることが重要になってきます。
+
+- **依存関係のCache**
+  - Maven, npmなどの依存関係をCacheする
+- **テストコードのCache**
+  - テストコードのビルド結果をCacheする
+- **ビルドプロセスの改善**
+  - 並列ビルド
+  - 差分がない場合はビルドをSkipする
+- **Dockerイメージのビルド**
+  - Multi-stage buildを利用する
+  - Baseイメージとなるイメージを分離する
+    - apt-getなどのインストールが多い場合はBaseイメージを分離し、1日1回ビルドしておくなど
 
 
-# 結論
+# まとめ
 
-## 記事の要点のまとめ
-## CIの高速化・安定化がもたらす長期的な効果についての強調
+CIの高速化と安定化に関して、いくつかのTipsを紹介しました。
+特にE2Eの高速化戦略に関しては、以下のように整理できます。
+
+- **シナリオに完全に独立性をもたせる**
+  - 毎シナリオごとに、データセットアップを行う
+    - テストコードのシンプリシティが高い
+  - 順番に依存させない
+  - 並列実行のためには、独立したテスト環境を複数用意する
+- **テスト中、データストアが状態を持つことを許容する**
+  - データセットアップをSkipできる
+  - 並列実行のためには、テストをグループ化して分割する
+    - テストフレームワークの並列実行機能を利用できる
+
+私としては後者は考慮すべきことが多くなるため、認知コストが低い前者推しですが、インフラ面やCI環境によっては後者の方が実現しやすい場合もあります。
+
+また、以下はテスト戦略に関わらないものです。
+- **テストフレームワークを理解する**
+- **テストコードをシンプルに保つ**
+- **オーバーヘッドの大きい処理を見つけ、削減する**
+
+これらの知見を実践に活かし、CIの改善に役立てていただければ幸いです。
