@@ -3,7 +3,7 @@ title: "CIを改善し続けて見えてきた、高速で安定したCIを実�
 emoji: "😽"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["CI", "e2e"]
-published: false
+published: true
 publication_name: "uzabase"
 ---
 
@@ -644,4 +644,4 @@ CIの高速化と安定化に関して、いくつかのTipsを紹介しまし�
 - **テストコードをシンプルに保つ**
 - **オーバーヘッドの大きい処理を見つけ、削減する**
 
-これらの知見を実践に活かし、CIの改善に役立てていただければ幸いです。
+これらの知見をCIの改善に役立てていただければ幸いです。
