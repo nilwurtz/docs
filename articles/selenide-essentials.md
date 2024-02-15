@@ -74,6 +74,25 @@ fun assertElement() {
 }
 ```
 
+#### 追記
+
+Selenide 7 系では、以下のように変わっていたので注意。
+
+```kotlin
+import com.codeborne.selenide.CheckResult
+import com.codeborne.selenide.Driver
+import com.codeborne.selenide.WebElementCondition
+import org.openqa.selenium.WebElement
+
+fun existsInViewPort(): WebElementCondition {
+    return object : WebElementCondition("exists in view port") {
+        override fun check(driver: Driver?, element: WebElement?): CheckResult {
+            TODO()
+        }
+    }
+}
+```
+
 ## WebdriverのSetup
 
 Selenideには4.6.0以降、SeleniumManagerが組み込まれており、6.17.0からはデフォルトで利用される。
